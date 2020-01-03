@@ -57,6 +57,8 @@ class ImageResize {
 			throw new Exception("File $filePath doesn't exist");
 		}
 
+        $fileExtension = pathinfo($filePath, PATHINFO_EXTENSION);
+
 		//set resize mode
 		$resizeMode = null;
 		$horzMode = null;
@@ -134,6 +136,10 @@ class ImageResize {
 			}
       
       //create image
+        if($fileExtension == 'svg'){
+            copy($filePath, $imageFile);
+            return $imageFile;
+        }
       $box = new Box($width, $height);
       $image = Image::getImagine()->open($filePath);
       if($resizeMode == self::IMAGE_CUSTOM) {
