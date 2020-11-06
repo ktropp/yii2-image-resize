@@ -136,10 +136,10 @@ class ImageResize {
 			}
       
       //create image
-        if($fileExtension == 'svg'){
-            copy($filePath, $imageFile);
-            return $imageFile;
-        }
+      if($fileExtension == 'svg'){
+          copy($filePath, $imageFile);
+          return $imageFile;
+      }
       $box = new Box($width, $height);
       $image = Image::getImagine()->open($filePath);
       if($resizeMode == self::IMAGE_CUSTOM) {
@@ -158,6 +158,71 @@ class ImageResize {
 
 		return $images[0];
 	}
+
+    public function generateFile($filePath, $chosenFileName = null) {
+        $filePath = FileHelper::normalizePath(Yii::getAlias($filePath));
+        if (!is_file($filePath)) {
+            throw new Exception("File $filePath doesn't exist");
+        }
+
+        //get fileinfo
+        $aFileInfo = pathinfo($filePath);
+
+        //set default filename
+        $sFileHash = md5($filePath . filemtime($filePath));
+        $imageFileName = null;
+
+        //if $this->useFilename set to true? use seo friendly name
+        if ($this->useFilename === true) {
+            //set hash and default name
+            $sFileHashShort = substr($sFileHash, 0, 6);
+            $sFileName = $aFileInfo['filename'];
+            //set choosen filename if $chosenFileName not null.
+            if ($chosenFileName !== null) {
+                $sFileName = preg_replace('/(\.\w+)$/', '', $chosenFileName);
+            }
+            //replace for seo friendly file name
+            $sFilenameReplace = preg_replace("/[^\w\.\-]+/", '-', $sFileName);
+            //set filename
+            $imageFileName = $sFileHashShort . "_" . $sFilenameReplace;
+            //else use file hash as filename
+        } else {
+            $imageFileName = $sFileHash;
+        }
+
+        $imageFileExt = "." . $aFileInfo['extension'];
+        $images = [];
+        foreach ($this->cachePath as $cachePath)
+        {
+            $cachePath     = Yii::getAlias('@webroot/' . $cachePath);
+            $imageFilePath = $cachePath . DIRECTORY_SEPARATOR . substr($imageFileName, 0, 2);
+            $imageFile     = $imageFilePath . DIRECTORY_SEPARATOR . $imageFileName . $imageFileExt;
+
+            if (file_exists($imageFile))
+            {
+                if ($this->cacheExpire !== 0 && (time() - filemtime($imageFile)) > $this->cacheExpire)
+                {
+                    unlink($imageFile);
+                }
+                else
+                {
+                    return $imageFile;
+                }
+            }
+            //if dir not exist create cache edir
+            if (!is_dir($imageFilePath))
+            {
+                FileHelper::createDirectory($imageFilePath, 0755);
+            }
+
+            //create file
+            file_put_contents($imageFile, file_get_contents($filePath));
+
+            $images[] = $imageFile;
+        }
+
+        return $images[0];
+    }
 
 	/**
 	 * Creates and caches the image and returns URL from resized file.
@@ -192,6 +257,29 @@ class ImageResize {
 
 		return $filesUrls[0];
 	}
+
+    public function getUrlFile($filePath, $fileName = null) {
+        //get original file
+        $normalizePath = FileHelper::normalizePath(Yii::getAlias($filePath));
+        //get cache url
+        $filesUrls = [];
+        foreach ($this->cachePath as $cachePath)
+        {
+            $cacheUrl = Yii::getAlias($cachePath);
+            //generate file
+            $resizedFilePath = self::generateFile($normalizePath, $fileName);
+            //get resized file
+            $normalizeResizedFilePath = FileHelper::normalizePath($resizedFilePath);
+            $resizedFileName          = pathinfo($normalizeResizedFilePath, PATHINFO_BASENAME);
+            //get url
+            $sFileUrl = Url::to('@web/' . $cacheUrl . '/' . substr($resizedFileName, 0, 2) . '/' . $resizedFileName, $this->absoluteUrl);
+
+            //return path
+            $filesUrls[] = $sFileUrl;
+        }
+
+        return $filesUrls[0];
+    }
 
 	/**
 	 * Clear cache directory.
