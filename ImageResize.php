@@ -146,7 +146,7 @@ class ImageResize {
         $cropRect = $this->getCropRectangle($image, $box, $horzMode, $vertMode);
         $image = $image->crop(new Point($cropRect[0], $cropRect[1]), new Box($cropRect[2], $cropRect[3]))->resize($box);
       } else {
-        $image = $image->thumbnail($box, $resizeMode);
+        $image = $image->thumbnail($box, $resizeMode | ImageInterface::THUMBNAIL_FLAG_NOCLONE);
       }
 
 			$options = [
